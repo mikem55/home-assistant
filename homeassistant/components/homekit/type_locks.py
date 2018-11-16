@@ -4,12 +4,12 @@ import logging
 from pyhap.const import CATEGORY_DOOR_LOCK
 
 from homeassistant.components.lock import (
-    ATTR_ENTITY_ID, STATE_LOCKED, STATE_UNLOCKED, STATE_UNKNOWN)
+    ATTR_ENTITY_ID, DOMAIN, STATE_LOCKED, STATE_UNLOCKED, STATE_UNKNOWN)
+from homeassistant.const import ATTR_CODE
 
 from . import TYPES
 from .accessories import HomeAccessory
-from .const import (
-    SERV_LOCK, CHAR_LOCK_CURRENT_STATE, CHAR_LOCK_TARGET_STATE)
+from .const import CHAR_LOCK_CURRENT_STATE, CHAR_LOCK_TARGET_STATE, SERV_LOCK
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,7 +32,8 @@ class Lock(HomeAccessory):
     def __init__(self, *args):
         """Initialize a Lock accessory object."""
         super().__init__(*args, category=CATEGORY_DOOR_LOCK)
-        self.flag_target_state = False
+        self._code = self.config.get(ATTR_CODE)
+        self._flag_state = False
 
         serv_lock_mechanism = self.add_preload_service(SERV_LOCK)
         self.char_current_state = serv_lock_mechanism.configure_char(
@@ -44,14 +45,16 @@ class Lock(HomeAccessory):
 
     def set_state(self, value):
         """Set lock state to value if call came from HomeKit."""
-        _LOGGER.debug("%s: Set state to %d", self.entity_id, value)
-        self.flag_target_state = True
+        _LOGGER.debug('%s: Set state to %d', self.entity_id, value)
+        self._flag_state = True
 
         hass_value = HOMEKIT_TO_HASS.get(value)
         service = STATE_TO_SERVICE[hass_value]
 
         params = {ATTR_ENTITY_ID: self.entity_id}
-        self.hass.services.call('lock', service, params)
+        if self._code:
+            params[ATTR_CODE] = self._code
+        self.call_service(DOMAIN, service, params)
 
     def update_state(self, new_state):
         """Update lock after state changed."""
@@ -64,6 +67,6 @@ class Lock(HomeAccessory):
 
             # LockTargetState only supports locked and unlocked
             if hass_state in (STATE_LOCKED, STATE_UNLOCKED):
-                if not self.flag_target_state:
+                if not self._flag_state:
                     self.char_target_state.set_value(current_lock_state)
-                self.flag_target_state = False
+                self._flag_state = False

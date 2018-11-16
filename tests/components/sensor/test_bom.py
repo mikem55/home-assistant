@@ -1,16 +1,16 @@
 """The tests for the BOM Weather sensor platform."""
+import json
 import re
 import unittest
-import json
-import requests
 from unittest.mock import patch
 from urllib.parse import urlparse
 
-from homeassistant.setup import setup_component
-from homeassistant.components import sensor
-
+import requests
 from tests.common import (
-    get_test_home_assistant, assert_setup_component, load_fixture)
+    assert_setup_component, get_test_home_assistant, load_fixture)
+
+from homeassistant.components import sensor
+from homeassistant.setup import setup_component
 
 VALID_CONFIG = {
     'platform': 'bom',
@@ -71,8 +71,8 @@ class TestBOMWeatherSensor(unittest.TestCase):
     def test_setup(self, mock_get):
         """Test the setup with custom settings."""
         with assert_setup_component(1, sensor.DOMAIN):
-            self.assertTrue(setup_component(self.hass, sensor.DOMAIN, {
-                'sensor': VALID_CONFIG}))
+            assert setup_component(self.hass, sensor.DOMAIN, {
+                'sensor': VALID_CONFIG})
 
         fake_entities = [
             'bom_fake_feels_like_c',
@@ -81,17 +81,19 @@ class TestBOMWeatherSensor(unittest.TestCase):
 
         for entity_id in fake_entities:
             state = self.hass.states.get('sensor.{}'.format(entity_id))
-            self.assertIsNotNone(state)
+            assert state is not None
 
     @patch('requests.get', side_effect=mocked_requests)
     def test_sensor_values(self, mock_get):
         """Test retrieval of sensor values."""
-        self.assertTrue(setup_component(
-            self.hass, sensor.DOMAIN, {'sensor': VALID_CONFIG}))
+        assert setup_component(
+            self.hass, sensor.DOMAIN, {'sensor': VALID_CONFIG})
 
-        self.assertEqual('Fine', self.hass.states.get(
-            'sensor.bom_fake_weather').state)
-        self.assertEqual('1021.7', self.hass.states.get(
-            'sensor.bom_fake_pressure_mb').state)
-        self.assertEqual('25.0', self.hass.states.get(
-            'sensor.bom_fake_feels_like_c').state)
+        weather = self.hass.states.get('sensor.bom_fake_weather').state
+        assert 'Fine' == weather
+
+        pressure = self.hass.states.get('sensor.bom_fake_pressure_mb').state
+        assert '1021.7' == pressure
+
+        feels_like = self.hass.states.get('sensor.bom_fake_feels_like_c').state
+        assert '25.0' == feels_like
